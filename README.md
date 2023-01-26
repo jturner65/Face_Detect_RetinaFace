@@ -17,7 +17,7 @@ conda create --name faceTest python==3.8.5 pytorch torchvision cpuonly -c pytorc
 
 ## Executing the code
 
-When the command is finished, you will be in the 'faceTest' environment.  Navigate to the directory where you copied the Face_Detect_RetinaFace project, and use the following commands to execute the code :
+When the above command is finished, you will be in the 'faceTest' environment.  Navigate to the directory where you copied the Face_Detect_RetinaFace project, and use the following commands to execute the code :
 
 To run the face detection on a single image (from the repo root directory) :
 
@@ -48,10 +48,20 @@ positional arguments:
 optional arguments:
   -h, --help            show this help message and exit
   -e, --eval            Evaluate results for ranges of confidence and non-maximal threshold values [0-1) 
-                        and save the results as csv files.
+                        and save the results as csv files, and, if matplotlib is installed, via 3d plots.
   -n {resnet50,mobile025}, --network {resnet50,mobile025}
                         Backbone network to use for detection.
   -s, --save_image      Save annotated images showing detection results.
   -v, --verbose_msgs    Print verbose results to the console.
 ```
+
+
+## Evaluating the models
+
+I chose RetinaFace over the other 2 possibilities because it seemed to be the most recent, was the easiest for me to install and use, and also seemed to require the least dependencies to consume its model (only requiring pytorch and opencv). I was also intrigued by its premise and was genuinely curious about how it worked, regarding the facial feature detection.
+
+The evaluation process provided shows how the choice of confidence and non-maximal suppression thresholds impacts the # of incorrect mapping counts. Unfortunately, without some kind of geometric(bbox) oracle/ground-truth annotations to validate against, evaluating the nature of proposals (i.e. # of false-positive/false-negative mappings) is difficult, and requires checking manually.  
+
+Also, it would appear that some of the image-title annotations are inaccurate.  For example, 2_faces_3.jpg clearly has 3 faces visible - the 2 obvious faces looking at the camera, and one off to the left of center in profile.  Both models were able to find this third face. Another example is 9_faces_1.jpg, which is annotated to contain 9 faces, but upon visual inspection only has 8 that are distinguishable, with at least half the face showing.
+
 

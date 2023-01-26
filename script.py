@@ -44,7 +44,8 @@ def main():
                             images. Should be .jpg or .png extension.')
     parser.add_argument('-e','--eval', action='store_true', default=False, 
                         help='Evaluate results for ranges of confidence and non-maximal \
-                            threshold values [0-1) and save the results as csv files.')
+                            threshold values [0-1) and save the results as csv files \
+                            and, if matplotlib is installed, via 3d plots.')
     parser.add_argument('-n','--network', default='resnet50', 
                         choices=['resnet50','mobile025'], 
                         help='Backbone network to use for detection.')
@@ -209,6 +210,8 @@ def main():
     if eval_results:
         # save evaluations of all images
         ut.save_eval_csv(thresh_all_results)
+        # plot results
+        ut.plot_all_results(thresh_all_results)
 
  
 if __name__ == '__main__':

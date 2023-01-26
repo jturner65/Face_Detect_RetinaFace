@@ -190,7 +190,7 @@ def filter_results_from_net(thresholds: Dict,
    
     thresholds : dict of float
         'conf' is confidence threshold of detections [0-1]
-        'nms' is non-maximal suppression threhold for overlaps [0-1]
+        'nms' is non-maximal suppression threshold for overlaps [0-1]
 
     Returns
     -------
@@ -310,7 +310,11 @@ def load_img(image_path : str, do_resize : Optional[bool] = False) -> Tuple :
         Loaded image as numpy array, loaded image as original matrix, value of resize 
         (to be used to scale after fwd pass)
     """
-    img_raw = cv2.imread(image_path, cv2.IMREAD_COLOR)
+    try: 
+        img_raw = cv2.imread(image_path, cv2.IMREAD_COLOR)
+    except: 
+        print(f"Attempting to load {image_path} as an image failed. Aborting.")
+        exit()
     img = np.float32(img_raw)
     resize = 1
     if do_resize:
@@ -330,11 +334,21 @@ def load_img(image_path : str, do_resize : Optional[bool] = False) -> Tuple :
 
     return img, img_raw, resize
 
+def get_res_dir(all_res_dict: dict, subdir: str):
+    # build the name of the subdirectory to put eval results in
+    res_dir = all_res_dict['res_dir']
+    if not os.path.exists(res_dir):
+        os.makedirs(res_dir)
+    res_dir = os.path.join(res_dir,subdir)
+    if not os.path.exists(res_dir):
+        os.makedirs(res_dir)
+    return res_dir    
+
 
 def save_eval_csv(all_res_dict: dict):
     f"""
     Save a csv with a single image's expected vs detected results for a range of
-    confidence and nms theshold values.
+    confidence and nms threshold values.
 
     Parameters
     ----------
@@ -353,12 +367,12 @@ def save_eval_csv(all_res_dict: dict):
                     'results' : dict
                         Dictionary containing dicts of counts for each tested combination of 
                         confidence and nms thresholds, keyed by string encoding confidence 
-                        threshold and nms threshold used to derive detection proposasls
+                        threshold and nms threshold used to derive detection proposals
                             Key-value pairs within each sub-dict :
                                 'thresholds': dict of floats
                                     'conf' and 'nms' values
                                 'num_detections' : int
-                                    number of detections with given thesholds
+                                    number of detections with given threshold
     
     Returns
     -------
@@ -368,16 +382,12 @@ def save_eval_csv(all_res_dict: dict):
     import csv
     # build list of dicts of res
     main_output_list = []
-    res_dir = all_res_dict['res_dir']
+    res_dir = get_res_dir(all_res_dict,'eval_data_res/')
     main_output_file_name = f'{res_dir}All_images_eval_results.csv'
     # fields in csvs
     fieldnames = ['Image','Entry', 'Confidence Thresh', 'NMS Thresh', 'Expected Count', 'Detected Count', 'Matched Dets']
     
-    for k, res_dict in sorted(all_res_dict["results"].items()):
-        
-        if not os.path.exists(res_dir):
-            os.makedirs(res_dir)
-
+    for _, res_dict in sorted(all_res_dict["results"].items()):
         img_filename = res_dict['image_path']
         split_ext = os.path.splitext(os.path.basename(img_filename))
         base_img_name = split_ext[0]
@@ -409,11 +419,108 @@ def save_eval_csv(all_res_dict: dict):
             csv_writer.writeheader()
             csv_writer.writerows(output_list)
 
+        print(f'Saving csv data for {base_img_name} to {output_file_name}')
     # Save all images report
     with open(main_output_file_name,'w', encoding='UTF8', newline='') as csvfile:
         csv_writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         csv_writer.writeheader()
         csv_writer.writerows(main_output_list)
+
+
+def plot_all_results(all_res_dict: dict):
+    f"""
+    Plot the performance of varying the confidence and non-maximal suppression threshold 
+    values, aggregated across all images.
+
+    Parameters
+    ----------
+    all_res_dict : dict
+        Dictionary holding two entries :
+            'res_dir' : string
+                Relative path to desired destination directory.
+            'results : dict
+                Holds per-image dictionaries of detection results for various
+                confidence and nms threshold values
+                Each dictionary is:
+                    Dictionary containing all pertinent information for a particular image.
+                    'image_path' : string
+                        Path and filename of original image. The filename for the result image 
+                        will be taken from this.
+                    'results' : dict
+                        Dictionary containing dicts of counts for each tested combination of 
+                        confidence and nms thresholds, keyed by string encoding confidence 
+                        threshold and nms threshold used to derive detection proposals
+                            Key-value pairs within each sub-dict :
+                                'thresholds': dict of floats
+                                    'conf' and 'nms' values
+                                'num_detections' : int
+                                    number of detections with given threshold
+    
+    Returns
+    -------
+    None
+
+    """
+    try:
+        import matplotlib.pyplot as plt
+        from matplotlib import cm
+        from collections import OrderedDict
+    except:
+        print('Matplotlib not found, so unable to plot results. Aborting.')
+        return
+    res_dir = get_res_dir(all_res_dict,'eval_data_plots/')
+    for _, res_dict in sorted(all_res_dict["results"].items()):
+        img_filename = res_dict['image_path']
+        split_ext = os.path.splitext(os.path.basename(img_filename))
+        base_img_name = split_ext[0]
+        plot_file_name = f'{res_dir}{base_img_name}_results.jpg'
+        # Number of expected faces for this file, based on file name
+        num_faces_expected = get_num_faces_expected(img_filename)  
+        # get all results for this image
+        res_values_dict = res_dict['results'] 
+
+        xDict = OrderedDict()
+        yDict = OrderedDict()
+        tmpZVals = {}
+        for _,v in sorted(res_values_dict.items()):
+            valsDict = v['thresholds']
+            x = valsDict['conf']
+            y = valsDict['nms']
+            xDict[x] = x
+            yDict[y] = y
+            # save # incorrect for this combination
+            tmpZVals[(x,y)] = abs(num_faces_expected - v["num_detections"])
+
+        zValues = np.empty(shape=(len(yDict),len(xDict)))
+        x = 0
+        for xVal in xDict:
+            y = 0
+            for yVal in yDict:
+                incorrect_val = tmpZVals[(xVal, yVal)]
+                zValues[y,x] = incorrect_val
+                y += 1
+            x += 1
+        xValues = list(xDict.keys())
+        yValues = list(yDict.keys())
+
+        fig = plt.figure()
+        ax = fig.add_subplot(projection='3d')
+        ax.set_title(f'{base_img_name} : Number incorrect vs. Confidence and NMS Thresholds')
+        xValues, yValues,  = np.meshgrid(xValues, yValues)
+
+        # Plot the surface.
+        surf = ax.plot_surface(xValues, yValues, zValues, cmap=cm.coolwarm, antialiased=True,linewidth=0.3,
+                       alpha = 0.8, edgecolor = 'k')
+        ax.set(xlabel = "Confidence Threshold", ylabel = "NMS Threshold", zlabel = "# Incorrect")
+
+        # Add a color bar which maps values to colors.
+        fig.colorbar(surf, shrink=0.5, aspect=5)
+        print(f'Saving plot for {base_img_name} to {plot_file_name}')
+        ax.invert_xaxis()
+        plt.savefig(plot_file_name, dpi=80)
+        plt.close()
+
+
 
 def save_annotated_image(dets : np.ndarray, 
                          img_raw : np.ndarray, 
@@ -442,7 +549,7 @@ def save_annotated_image(dets : np.ndarray,
 
     threshold_str : string
         Holds string encoding confidence threshold and nms threshold used to derive
-        detection proposasls. Used for file name.
+        detection proposals. Used for file name.
     
     Returns
     -------
