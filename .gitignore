@@ -131,3 +131,5 @@ dmypy.json
 results_resnet/
 
 models/Resnet50_Final_model.pth
+
+results_mobile025/

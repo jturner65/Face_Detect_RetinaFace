@@ -1,6 +1,7 @@
 # Face_Detect_RetinaFace
-Project to use RetinaFace pretrained models to detect faces
+Project to use RetinaFace pretrained models to detect faces.
 
+To access this project, you can clone this repository, or [download an archive of the code here](https://github.com/jturner65/Face_Detect_RetinaFace/archive/refs/heads/main.zip) and unzip in a desired directory.
 
 Two models are provided that have been trained using the [RetinaFace](https://github.com/biubug6/Pytorch_Retinaface) protocol. The `Resnet50_Final_model.pth` provides the better performance than the `mobilenet0.25_Final_model.pth`, but the model is larger and so is hosted off github.  [Here's a link to the Resnet model](https://drive.google.com/file/d/19A6wrCTJm-v2c606JIfDSC0uLUL5ovSP/view?usp=share_link). Once downloaded, put the model in the `models` directory.  If you do not download this model, the model used by the Face_Detect code will default to the `mobilenet0.25_Final_model.pth`.
 
@@ -14,12 +15,43 @@ Once you have Anaconda installed for your operating system, the following comman
 conda create --name faceTest python==3.8.5 pytorch torchvision cpuonly -c pytorch -y && conda activate faceTest2 && pip install opencv-python
 ```
 
+## Executing the code
+
 When the command is finished, you will be in the 'faceTest' environment.  Navigate to the directory where you copied the Face_Detect_RetinaFace project, and use the following commands to execute the code :
 
 To run the face detection on a single image (from the repo root directory) :
 
 ```
 python script.py <relative image path/name>.<jpg or png>
+```
+So, for example, using the current repository's layout, with source images in the `images` directory, you would execute the script on `0_faces_4.jpg` using the following :
 
 ```
-So, for example, using the current repository's layout, with source images in the `images` directory
+python script.py images/0_faces_4.jpg 
+```
+
+If instead, you wish to execute the script on an entire directory, such as all images in the `images/` directory, you would use : 
+
+```
+python script.py images
+```
+The script also supports the following command-line parameters : 
+
+```
+usage: script.py [-h] [-e] [-n {resnet50,mobile025}] [-s] [-v] file_or_dir_name
+
+Count faces in images
+
+positional arguments:
+  file_or_dir_name      Either the name of an image to find and count faces in, or the name of a directory containing a list of such images. Should be .jpg or .png extension.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -e, --eval            Evaluate results for ranges of confidence and non-maximal threshold values [0-1) 
+                        and save the results as csv files.
+  -n {resnet50,mobile025}, --network {resnet50,mobile025}
+                        Backbone network to use for detection.
+  -s, --save_image      Save annotated images showing detection results.
+  -v, --verbose_msgs    Print verbose results to the console.
+```
+

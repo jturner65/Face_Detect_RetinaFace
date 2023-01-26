@@ -43,21 +43,24 @@ def main():
                             in, or the name of a directory containing a list of such \
                             images. Should be .jpg or .png extension.')
     parser.add_argument('-e','--eval', action='store_true', default=False, 
-                        help='Evaluate results for multiple confidence values [0-1)')
+                        help='Evaluate results for ranges of confidence and non-maximal \
+                            threshold values [0-1) and save the results as csv files.')
     parser.add_argument('-n','--network', default='resnet50', 
                         choices=['resnet50','mobile025'], 
                         help='Backbone network to use for detection.')
     parser.add_argument('-s', '--save_image', action='store_true', default=False, 
-                        help='Save annotated images showing detection results')
-    parser.add_argument('-v', '--verbose_console', action='store_true', default=False, 
-                        help='Print verbose results to the console')
+                        help='Save annotated images showing detection results.')
+    parser.add_argument('-v', '--verbose_msgs', action='store_true', default=False, 
+                        help='Print verbose results to the console.')
 
 
     args = parser.parse_args()
-
+    
+    # Map parser args
     # Should be either a file name or a directory name
     file_or_dir_name = args.file_or_dir_name
-    # Determine what was requested
+
+    # Determine whether requested file or dir exists, what it was, and if it is of valid format
     file_or_dir_res = ut.check_file_or_dir(file_or_dir_name, VALID_EXT)
     if not file_or_dir_res[0]:
         if not file_or_dir_res[1]:
@@ -66,18 +69,37 @@ def main():
             print(f'{file_or_dir_name} was found as a file but has unsupported extension.  Aborting.')
         exit()
 
-    # Only consuming the model, no need for gradients
-    torch.set_grad_enabled(False)
+    # Pretrained network to use - this is a key to AVAILABLE_NETS_INFO dict's subdicts
+    net_to_use = args.network
 
-    # Map parser args
+    found = False
+    # Verify model exists, otherwise default to an existing model or exit gracefully
+    while not found :
+        model_path_to_use = AVAILABLE_NETS_INFO['model_path'][net_to_use]
+        model_found_res = ut.check_file_or_dir(model_path_to_use)
+        if not model_found_res[0]:
+            if net_to_use == 'resnet50':
+                print(f'"Resnet50_Final_model.pth" not found in "models/" directory.  \
+                Attempting to load "mobilenet0.25_Final_model.pth" instead. This model \
+                does not perform as well.')
+                # Try again with mobile025
+                net_to_use = 'mobile025'
+            else:
+                print(f'No valid network models found in "models/" directory.  Aborting.')
+                exit()
+        else:
+            print(f"Found {model_path_to_use} model.")
+            found = True
     # Whether or not we should evaluate the results
     eval_results = args.eval
-    # Pretrained network to use - this is a key to AVAILABLE_NETS_INFO
-    net_to_use = args.network
     # Whether or not to save annotated images
     save_image = args.save_image
     # verbose console output
-    verbose_console = args.verbose_console
+    verbose_msgs = args.verbose_msgs
+
+
+    # Only consuming the model, no need for gradients
+    torch.set_grad_enabled(False)
 
     # Build list containing either a single image file name or all file names within the passed directory
     if file_or_dir_res[1] : 
@@ -86,7 +108,7 @@ def main():
         image_file_list = ut.get_filenames_from_subdir(file_or_dir_name, VALID_EXT)
 
     # Load the pretrained model trained by RetinaFace    
-    model = torch.load(AVAILABLE_NETS_INFO['model_path'][net_to_use])  
+    model = torch.load(model_path_to_use)  
     model.eval()
     device = torch.device('cpu')
     model = model.to(device)
@@ -110,7 +132,7 @@ def main():
         nms_range = arange(0.05, 1.0, 0.05)
 
     # if not verbose then show expected results string
-    show_res_str = not verbose_console
+    show_res_str = not verbose_msgs
  
     # Only used for result eval
     thresh_all_results = {}
@@ -149,7 +171,7 @@ def main():
                     tmp_dict['thresholds'] = thresholds
                     tmp_dict['num_detections'] = num_detections
                     thresh_results_dict['results'][threshold_key] = tmp_dict
-                    if verbose_console:
+                    if verbose_msgs:
                         # expanded output
                         expected_equals = num_detections == num_faces_expected
                         if expected_equals :
@@ -170,7 +192,7 @@ def main():
                 # show primary requirement to console
                 print(f'{img_filename}\t{num_detections}')
 
-            if verbose_console:
+            if verbose_msgs:
                 # expanded output
                 expected_equals = num_detections == num_faces_expected
                 if expected_equals :
@@ -185,7 +207,7 @@ def main():
 
         
     if eval_results:
-        # save evaulations of all images
+        # save evaluations of all images
         ut.save_eval_csv(thresh_all_results)
 
  
