@@ -127,3 +127,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+results_resnet/
+
+models/Resnet50_Final_model.pth
